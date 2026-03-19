@@ -72,7 +72,6 @@ jobs:
 
           rsync -av \
             --exclude '.git' \
-            --exclude '.git/' \
             --exclude '.github/' \
             --exclude 'dist/' \
             upstream/ "dist/${ADDON_NAME}/"
