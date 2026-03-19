@@ -5,7 +5,6 @@ local L = LibStub("AceLocale-3.0"):GetLocale("KeystoneLoot")
 
 local lineAdded = false
 
-local numScreen = ""
 
 local frame = CreateFrame("Frame");
 frame:RegisterEvent("ADDON_LOADED");
