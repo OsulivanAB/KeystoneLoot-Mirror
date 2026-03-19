@@ -1,0 +1,74 @@
+name: Sync from Upstream (redpril/KeystoneLoot)
+
+# Runs on a daily schedule and can also be triggered manually.
+on:
+  schedule:
+    - cron: '0 6 * * *'   # 06:00 UTC every day
+  workflow_dispatch:
+
+# Only write access is needed — no other permissions required.
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout mirror repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/redpril/KeystoneLoot.git
+          git fetch upstream master --no-tags
+
+      - name: Sync upstream files and handle deletions
+        run: |
+          # Check out every file from upstream/master into our working tree.
+          # This overwrites files that exist in upstream (including upstream's
+          # README.md), but leaves files that only exist in our tree untouched.
+          git checkout upstream/master -- .
+
+          # Restore our repo-specific files so they are never overwritten.
+          git checkout HEAD -- README.md
+          git checkout HEAD -- .github/ 2>/dev/null || true
+
+          # Remove files we previously mirrored that have since been deleted
+          # upstream.  We only consider non-repo-specific tracked files.
+          git ls-tree -r --name-only HEAD \
+            | grep -v '^\.github/' \
+            | grep -v '^README\.md$' \
+            | while IFS= read -r file; do
+                if ! git cat-file -e "upstream/master:${file}" 2>/dev/null; then
+                  echo "Removing upstream-deleted file: ${file}"
+                  git rm -f "${file}"
+                fi
+              done
+
+      - name: Stage all changes and detect differences
+        id: check
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No upstream changes detected — skipping commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Upstream changes detected."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push if changes exist
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          UPSTREAM_SHA=$(git rev-parse upstream/master)
+          git commit -m "chore: sync from redpril/KeystoneLoot@${UPSTREAM_SHA:0:7}"
+          git push origin main
