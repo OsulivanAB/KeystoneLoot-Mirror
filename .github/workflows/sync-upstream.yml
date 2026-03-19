@@ -71,6 +71,7 @@ jobs:
           mkdir -p "dist/${ADDON_NAME}"
 
           rsync -av \
+            --exclude '.git' \
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude 'dist/' \
