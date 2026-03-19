@@ -1,4 +1,4 @@
-name: Sync from Upstream (redpril/KeystoneLoot)
+name: Build from Upstream (Wolkenschutz/KeystoneLoot)
 
 on:
   schedule:
@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  sync:
+  release:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,69 +24,41 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout upstream repository
+        uses: actions/checkout@v4
+        with:
+          repository: Wolkenschutz/KeystoneLoot
+          ref: main
+          fetch-depth: 1
+          path: upstream
+
+      - name: Detect upstream changes
+        id: check
+        run: |
+          set -euo pipefail
+
+          UPSTREAM_SHA="$(git -C upstream rev-parse HEAD)"
+          SHORT_SHA="${UPSTREAM_SHA:0:7}"
+          VERSION_TAG="mirror-${UPSTREAM_SHA}"
+
+          if git rev-parse -q --verify "refs/tags/${VERSION_TAG}" >/dev/null; then
+            echo "No new upstream changes detected."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New upstream revision detected."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "upstream_sha=${UPSTREAM_SHA}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "version_tag=${VERSION_TAG}" >> "$GITHUB_OUTPUT"
+
       - name: Configure Git identity
+        if: steps.check.outputs.changed == 'true'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Add upstream remote and fetch
-        run: |
-          set -euo pipefail
-          git remote remove upstream 2>/dev/null || true
-          git remote add upstream https://github.com/redpril/KeystoneLoot.git
-          git fetch upstream master --tags --force
-
-      - name: Sync upstream files and handle deletions
-        run: |
-          set -euo pipefail
-
-          # Pull all upstream files into the working tree
-          git checkout upstream/master -- .
-
-          # Restore repo-specific files so they are not overwritten
-          git checkout HEAD -- README.md
-          git checkout HEAD -- .github/ 2>/dev/null || true
-
-          # Remove files that existed in our mirror but no longer exist upstream
-          git ls-tree -r --name-only HEAD \
-            | grep -v '^\.github/' \
-            | grep -v '^README\.md$' \
-            | while IFS= read -r file; do
-                if ! git cat-file -e "upstream/master:${file}" 2>/dev/null; then
-                  echo "Removing upstream-deleted file: ${file}"
-                  git rm -f "${file}"
-                fi
-              done
-
-      - name: Detect changes
-        id: check
-        run: |
-          set -euo pipefail
-          git add -A
-
-          if git diff --cached --quiet; then
-            echo "No upstream changes detected."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Upstream changes detected."
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Commit and push sync changes
-        if: steps.check.outputs.changed == 'true'
-        id: commit
-        run: |
-          set -euo pipefail
-
-          UPSTREAM_SHA="$(git rev-parse upstream/master)"
-          SHORT_SHA="${UPSTREAM_SHA:0:7}"
-
-          git commit -m "chore: sync from redpril/KeystoneLoot@${SHORT_SHA}"
-          git push origin main
-
-          echo "upstream_sha=${UPSTREAM_SHA}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Build addon zip for WowUp
         if: steps.check.outputs.changed == 'true'
@@ -94,7 +66,6 @@ jobs:
           set -euo pipefail
 
           ADDON_NAME="KeystoneLoot"
-          VERSION_TAG="mirror-$(date -u +%Y%m%d-%H%M%S)-${{ steps.commit.outputs.short_sha }}"
 
           rm -rf dist
           mkdir -p "dist/${ADDON_NAME}"
@@ -103,14 +74,14 @@ jobs:
             --exclude '.git/' \
             --exclude '.github/' \
             --exclude 'dist/' \
-            ./ "dist/${ADDON_NAME}/"
+            upstream/ "dist/${ADDON_NAME}/"
 
           (
             cd dist
             zip -r "${ADDON_NAME}.zip" "${ADDON_NAME}"
           )
 
-          echo "${VERSION_TAG}" > dist/version.txt
+          echo "${{ steps.check.outputs.version_tag }}" > dist/version.txt
 
       - name: Create GitHub release and upload zip
         if: steps.check.outputs.changed == 'true'
@@ -122,10 +93,7 @@ jobs:
           VERSION_TAG="$(cat dist/version.txt)"
           ADDON_NAME="KeystoneLoot"
 
-          if ! git rev-parse "${VERSION_TAG}" >/dev/null 2>&1; then
-            git tag "${VERSION_TAG}"
-          fi
-
+          git tag "${VERSION_TAG}"
           git push origin "${VERSION_TAG}"
 
           gh release create "${VERSION_TAG}" \
@@ -133,4 +101,4 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --target main \
             --title "${VERSION_TAG}" \
-            --notes "Automated mirror release from redpril/KeystoneLoot @ ${{ steps.commit.outputs.short_sha }}"
+            --notes "Automated mirror release from Wolkenschutz/KeystoneLoot @ ${{ steps.check.outputs.short_sha }}"
