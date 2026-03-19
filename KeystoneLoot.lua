@@ -2,7 +2,26 @@ KeystoneLoot = LibStub("AceAddon-3.0"):NewAddon("KeystoneLoot",
                                                 "AceConsole-3.0",
                                                 "AceEvent-3.0");
 local L = LibStub("AceLocale-3.0"):GetLocale("KeystoneLoot")
-level of the item you'll find in this week's chest."]);
+
+local lineAdded = false
+
+local numScreen = ""
+
+local frame = CreateFrame("Frame");
+frame:RegisterEvent("ADDON_LOADED");
+
+frame:SetScript("OnEvent", function(self, event, ...)
+    if (event == "ADDON_LOADED") then
+        local addon = ...
+
+        -- if (addon == "Blizzard_ChallengesUI") then		
+
+        -- local iLvlFrm = CreateFrame("Frame","LootLevel",ChallengesModeWeeklyBest);
+        -- iLvlFrm:SetWidth(100);
+        -- iLvlFrm:SetHeight(50);
+        -- iLvlFrm:SetPoint("CENTER",-128,-37); 
+
+        -- sdm_SetTooltip(iLvlFrm, L["This shows the level of the item you'll find in this week's chest."]);
 
         -- iLvlFrm.text = iLvlFrm:CreateFontString(nil, "MEDIUM", "GameFontHighlightLarge");
         -- iLvlFrm.text:SetAllPoints(iLvlFrm);
