@@ -1,44 +1,28 @@
-# KeystoneLoot
+# KeystoneLoot-Mirror
 
-**KeystoneLoot** is a World of Warcraft addon that gives you a compact, filterable overview of loot from Mythic+ dungeons, raids, and the Revival Catalyst, all in one place.
+Mirror workflow for [KeystoneLoot by Wolkenschutz](https://github.com/Wolkenschutz/KeystoneLoot) for use with WowUp.
 
----
+## How the mirror works
 
-## Features
+A scheduled GitHub Actions workflow (`.github/workflows/sync-upstream.yml`) runs
+every 30 minutes and can also be triggered manually via **Actions → Run workflow**.
 
-### Dungeons & Raids Overview
-Browse loot from all current Mythic+ dungeons and raids in a clean, icon-based layout. Switch between content tabs at a glance without cluttering your screen.
+It keeps this repository trimmed down and pulls the addon directly from the
+upstream source repository when a new release is needed:
 
-### Smart Loot Filtering
-Filter displayed items by class, specialization, item slot, and item level. Filters automatically sync when you switch characters via the character dropdown, so you always see what's relevant to your current alt.
+1. Checks out this mirror repository and the upstream `Wolkenschutz/KeystoneLoot`
+   repository.
+2. Detects whether the upstream `main` branch is already mirrored by checking
+   for a matching release tag.
+3. Builds a WowUp-ready ZIP from the upstream addon files.
+4. Publishes a GitHub release only when the upstream revision is new.
 
-### Revival Catalyst
-View all Catalyst-convertible items for your class and spec directly within the addon, no need to look them up externally.
+## Repo-specific files
 
-### Favorites System
-Mark items as favorites on a per-character, per-spec basis. The system supports:
-- Favoriting for a single spec or all specs at once
-- Viewing another character's wishlist via the character dropdown
-- **Export & Import** of favorites using a compact string format (`KeystoneLoot:v1,...`), great for sharing wishlists or migrating between accounts
+| Path | Purpose |
+|------|---------|
+| `README.md` | This file — mirror documentation |
+| `.github/workflows/sync-upstream.yml` | Sync workflow |
 
-### Loot Spec Reminder
-When you enter a Mythic+ dungeon, KeystoneLoot checks whether your active loot specialization matches your favorited items. It also compares loot pool sizes across specs, so if a different spec has a smaller pool but can still drop what you want, it recommends that one instead for better odds.
-
-### Keystone Tooltip
-Hovering over a keystone in your bags shows additional dungeon info directly in the tooltip.
-
-### Teleport Buttons
-Quick-teleport buttons on dungeon entries let you jump straight to a dungeon entrance without leaving the addon.
-
-### Minimap Button
-Toggle the main window from a minimap button. Fully draggable and position-persistent.
-
----
-
-## Installation
-Install via [CurseForge](https://www.curseforge.com/wow/addons/keystoneloot)
-
----
-
-## Localization
-KeystoneLoot ships with support for: `enUS`, `deDE`, `esES`, `frFR`, `itIT`, `koKR`, `ptBR`, `ruRU`, `zhCN`, `zhTW`
+This repository intentionally keeps only the workflow and this README; the addon
+source lives in the upstream repository maintained by Wolkenschutz.
