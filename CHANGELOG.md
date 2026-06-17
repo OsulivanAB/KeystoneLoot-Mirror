@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.10.1 - 2026-06-17
+
+### Other Changes
+
+- Update interface version to 120007
+- Add new raid and items
+
 ## 2.10.0 - 2026-06-14
 
 ### New Features
