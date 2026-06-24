@@ -29,7 +29,7 @@ When you enter a Mythic+ dungeon, KeystoneLoot checks whether your active loot s
 ### Teleport Buttons
 Quick-teleport buttons on dungeon entries let you jump straight to a dungeon entrance without leaving the addon.
 
-### Revival Catalyst
+### The Catalyst
 View all Catalyst-convertible items for your class and spec directly within the addon, no need to look them up externally.
 
 ### Keystone Tooltip

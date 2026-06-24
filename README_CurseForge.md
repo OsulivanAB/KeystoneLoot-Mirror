@@ -29,7 +29,7 @@ As soon as you zone into a Mythic+ dungeon, KeystoneLoot checks if your loot spe
 **Teleport Buttons**
 Teleport directly to a dungeon entrance with one click, no more digging through your spellbook.
 
-**Revival Catalyst**
+**The Catalyst**
 See all Catalyst-eligible items for your class and spec right inside the addon.
 
 **Keystone Tooltip**
