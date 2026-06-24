@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.10.2 - 2026-06-24
+
+### Other Changes
+
+- Update README and localization references for the Catalyst
+
+### Refactor
+
+- Clean up whitespace and formatting in multiple files
+
 ## 2.10.1 - 2026-06-17
 
 ### Other Changes
