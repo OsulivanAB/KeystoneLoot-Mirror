@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.10.3 - 2026-07-11
+
+### Other Changes
+
+- Update locales
+- Add Rotmire to Voidcore Database
+
 ## 2.10.2 - 2026-06-24
 
 ### Other Changes
