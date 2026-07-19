@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.10.4 - 2026-07-19
+
+### Other Changes
+
+- Update ruRU.lua
+- Merge pull request [#59](https://github.com/Wolkenschutz/KeystoneLoot/pull/59) by [Hollicsh](https://github.com/Hollicsh) from Hollicsh/main
+
 ## 2.10.3 - 2026-07-11
 
 ### Other Changes
