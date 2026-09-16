@@ -1,0 +1,180 @@
+name: Sync upstream and publish WowUp release
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: keystoneloot-sync
+  cancel-in-progress: false
+
+jobs:
+  sync_and_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository (main)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Mirror upstream into main, but preserve local repo files
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          upstream_repo="https://github.com/Wolkenschutz/KeystoneLoot.git"
+          upstream_branch="main"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Save local files/directories that must survive the mirror
+          rm -rf /tmp/mirror-preserve
+          mkdir -p /tmp/mirror-preserve
+
+          if [ -d .github/workflows ]; then
+            mkdir -p /tmp/mirror-preserve/.github
+            cp -R .github/workflows /tmp/mirror-preserve/.github/
+          fi
+
+          if [ -f README.md ]; then
+            cp README.md /tmp/mirror-preserve/README.md
+          fi
+
+          if [ -f MIRROR_NOTICE.md ]; then
+            cp MIRROR_NOTICE.md /tmp/mirror-preserve/MIRROR_NOTICE.md
+          fi
+
+          # Add/fetch upstream
+          if ! git remote get-url tmp_upstream >/dev/null 2>&1; then
+            git remote add tmp_upstream "$upstream_repo"
+          fi
+          git fetch tmp_upstream "$upstream_branch" --force
+          git fetch tmp_upstream --tags --force || true
+
+          # Start from upstream tip
+          git checkout -B _mirror "tmp_upstream/${upstream_branch}"
+
+          # Remove upstream workflow files entirely
+          rm -rf .github/workflows
+
+          # Restore this repo's workflow files
+          if [ -d /tmp/mirror-preserve/.github/workflows ]; then
+            mkdir -p .github
+            cp -R /tmp/mirror-preserve/.github/workflows .github/
+          fi
+
+          # Restore this repo's README
+          if [ -f /tmp/mirror-preserve/README.md ]; then
+            cp /tmp/mirror-preserve/README.md README.md
+          fi
+
+          # Restore optional mirror notice file
+          if [ -f /tmp/mirror-preserve/MIRROR_NOTICE.md ]; then
+            cp /tmp/mirror-preserve/MIRROR_NOTICE.md MIRROR_NOTICE.md
+          fi
+
+          # Intentionally do not restore LICENSE so upstream license stays in place
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Mirror upstream (preserve local repo files)"
+          fi
+
+          upstream_sha="$(git rev-parse "tmp_upstream/${upstream_branch}")"
+          mirror_sha="$(git rev-parse HEAD)"
+
+          echo "UPSTREAM_SHA=${upstream_sha}" >> "$GITHUB_ENV"
+          echo "MIRROR_SHA=${mirror_sha}" >> "$GITHUB_ENV"
+
+          # Update main directly using the checkout-provided GITHUB_TOKEN credentials
+          git push origin HEAD:main --force
+
+      - name: Fetch updated main branch + tags
+        run: |
+          set -euo pipefail
+          git fetch origin main --force
+          git fetch --tags --force
+
+      - name: Compute upstream commit tag
+        id: meta
+        run: |
+          set -euo pipefail
+          up_sha="${UPSTREAM_SHA}"
+          short="$(printf "%s" "$up_sha" | cut -c1-8)"
+          tag="upstream-${short}"
+          echo "up_sha=${up_sha}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this upstream commit was already released
+        id: skip
+        run: |
+          set -euo pipefail
+          tag="${{ steps.meta.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push tag for mirrored commit
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.meta.outputs.tag }}"
+          mirror_sha="${MIRROR_SHA}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -a "$tag" "$mirror_sha" -m "Mirror upstream commit ${{ steps.meta.outputs.up_sha }} (local repo files preserved)"
+          git push origin "refs/tags/$tag"
+
+      - name: Check out mirrored commit into a worktree for packaging
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          mirror_sha="${MIRROR_SHA}"
+          git worktree add --force _pkg "$mirror_sha"
+
+      - name: Build WowUp-compatible zip
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+
+          addon="KeystoneLoot"
+          tag="${{ steps.meta.outputs.tag }}"
+
+          rm -rf dist
+          mkdir -p "dist/${addon}"
+
+          rsync -av \
+            --exclude ".git" \
+            --exclude ".github" \
+            ./_pkg/ "dist/${addon}/"
+
+          (
+            cd dist
+            zip -r "../${addon}-${tag}.zip" "${addon}"
+          )
+
+      - name: Create GitHub Release with zip asset
+        if: steps.skip.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
+          files: |
+            KeystoneLoot-${{ steps.meta.outputs.tag }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
